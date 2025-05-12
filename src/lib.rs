@@ -8,8 +8,8 @@ use std::{
 
 pub type Float = f64;
 
-#[derive(Debug, PartialEq, Clone)]
 #[constructors]
+#[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum Expr {
     Num(Float),
@@ -18,10 +18,23 @@ pub enum Expr {
     Constant(Const),
 }
 
-#[derive(Debug, PartialEq, Clone)]
 #[constants(Expr::Constant)]
+#[derive(Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub enum Const {
     Zero,
+    Pi,
+    E,
+}
+
+impl Display for Const {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Const::Zero => write!(f, "0"),
+            Const::Pi => write!(f, "π"),
+            Const::E => write!(f, "e"),
+        }
+    }
 }
 
 impl Display for Expr {
@@ -36,21 +49,30 @@ impl Display for Expr {
                     .iter()
                     .fold(String::new(), |acc, e| format!("{acc} + ({e})"))
             ),
-            Expr::Constant(_) => todo!(),
+            Expr::Constant(c) => write!(f, "{c}"),
         }
     }
 }
 
 impl Expr {
+    /// Recursively evaluates the expression **without simplifying**.
+    /// <div class="warning">
+    /// Fox maximum precision, first simplify an expression then evaluate it.
+    /// </div>
     pub fn eval(&self) -> Float {
         match self {
             Expr::Num(n) => *n,
             Expr::Neg(e) => -e.eval(),
             Expr::Add(set) => set.iter().fold(0.0, |acc, e| acc + e.eval()),
-            Expr::Constant(_) => todo!(),
+            Expr::Constant(c) => match c {
+                Const::Zero => 0.0,
+                Const::Pi => std::f64::consts::PI,
+                Const::E => std::f64::consts::E,
+            },
         }
     }
 
+    /// Reduce the expression to its simplest form.
     pub fn simplify(self) -> Expr {
         match self {
             Expr::Num(_) => self,
@@ -63,14 +85,28 @@ impl Expr {
                     .into_iter()
                     .map(|e| e.simplify())
                     .collect::<Vec<_>>();
+
                 let mut remove_indices = BTreeSet::new();
+
                 for (i, e) in operands.iter().enumerate() {
-                    if let Some(test) = operands
-                        .iter()
-                        .position(|test| test == &neg(e.clone()) && !remove_indices.contains(&i))
-                    {
+                    if let Some(test) = operands.iter().position(|test| test == &neg(e.clone())) {
                         remove_indices.insert(i);
                         remove_indices.insert(test);
+                    }
+                }
+
+                for i in remove_indices.iter().rev() {
+                    operands.remove(*i);
+                }
+
+                remove_indices.clear();
+
+                if let Some(first_num) = operands.iter().position(|e| matches!(e, Expr::Num(_))) {
+                    for i in (first_num + 1)..operands.len() {
+                        if let Expr::Num(n) = operands[i] {
+                            operands[first_num] += n;
+                            remove_indices.insert(i);
+                        }
                     }
                 }
 
@@ -86,7 +122,7 @@ impl Expr {
                     add(operands)
                 }
             }
-            Expr::Constant(_) => todo!(),
+            Expr::Constant(_) => self,
         }
     }
 }
@@ -109,6 +145,14 @@ impl Add for Expr {
     }
 }
 
+impl Add<Float> for Expr {
+    type Output = Self;
+
+    fn add(self, rhs: Float) -> Self::Output {
+        self + num(rhs)
+    }
+}
+
 impl AddAssign for Expr {
     fn add_assign(&mut self, rhs: Self) {
         if let Self::Add(operands) = self {
@@ -118,6 +162,12 @@ impl AddAssign for Expr {
         } else {
             *self = add(vec![self.clone(), rhs])
         }
+    }
+}
+
+impl AddAssign<Float> for Expr {
+    fn add_assign(&mut self, rhs: Float) {
+        *self += num(rhs);
     }
 }
 
@@ -139,6 +189,14 @@ impl Sub for Expr {
     }
 }
 
+impl Sub<Float> for Expr {
+    type Output = Self;
+
+    fn sub(self, rhs: Float) -> Self::Output {
+        self - num(rhs)
+    }
+}
+
 impl SubAssign for Expr {
     fn sub_assign(&mut self, rhs: Self) {
         if let Self::Add(operands) = self {
@@ -151,6 +209,12 @@ impl SubAssign for Expr {
     }
 }
 
+impl SubAssign<Float> for Expr {
+    fn sub_assign(&mut self, rhs: Float) {
+        *self -= num(rhs);
+    }
+}
+
 impl Neg for Expr {
     type Output = Self;
 
@@ -160,5 +224,29 @@ impl Neg for Expr {
         } else {
             neg(self)
         }
+    }
+}
+
+impl PartialEq<Float> for Expr {
+    fn eq(&self, other: &Float) -> bool {
+        self.eval().eq(other)
+    }
+}
+
+impl PartialOrd<Float> for Expr {
+    fn partial_cmp(&self, other: &Float) -> Option<std::cmp::Ordering> {
+        self.eval().partial_cmp(other)
+    }
+}
+
+impl From<Expr> for Float {
+    fn from(value: Expr) -> Self {
+        value.simplify().eval()
+    }
+}
+
+impl From<Float> for Expr {
+    fn from(value: Float) -> Self {
+        num(value)
     }
 }

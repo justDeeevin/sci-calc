@@ -2,7 +2,7 @@ use sci_calc::expr::*;
 
 #[test]
 fn simple_eval() {
-    assert_eq!(neg(num(1.0)).eval(), -1.0);
+    assert_eq!(neg(num(1.0)), -1.0);
 }
 
 #[test]

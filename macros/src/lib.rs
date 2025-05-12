@@ -97,7 +97,11 @@ pub fn constants(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     quote! {
         #def
-        #(pub const #names: #expr_type = #expr(<#ident>::#variants);)*
+        pub mod consts {
+            use super::*;
+            #(pub const #names: #expr_type = #expr(<#ident>::#variants);)*
+        }
+        use consts::*;
     }
     .into()
 }
