@@ -1,25 +1,28 @@
 use sci_calc_macros::{constants, constructors};
 
 use std::{
-    collections::BTreeSet,
+    collections::HashMap,
     fmt::Display,
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
 };
 
 pub type Float = f64;
+pub type Int = u128;
 
 #[constructors]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Expr {
-    Num(Float),
+    Num(Int),
     Neg(Box<Expr>),
     Add(Vec<Expr>),
+    Mul(Vec<Expr>),
+    Frac(Box<Expr>, Box<Expr>),
     Constant(Const),
 }
 
 #[constants(Expr::Constant)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Const {
     Zero,
@@ -47,9 +50,25 @@ impl Display for Expr {
                 "{}",
                 operands
                     .iter()
-                    .fold(String::new(), |acc, e| format!("{acc} + ({e})"))
+                    .fold(String::new(), |acc, e| if acc.is_empty() {
+                        format!("({e})")
+                    } else {
+                        format!("{acc} + ({e})")
+                    })
             ),
             Expr::Constant(c) => write!(f, "{c}"),
+            Expr::Mul(operands) => write!(
+                f,
+                "{}",
+                operands
+                    .iter()
+                    .fold(String::new(), |acc, e| if acc.is_empty() {
+                        format!("({e})")
+                    } else {
+                        format!("{acc} * ({e})")
+                    })
+            ),
+            Expr::Frac(a, b) => write!(f, "({a})/({b})"),
         }
     }
 }
@@ -61,14 +80,16 @@ impl Expr {
     /// </div>
     pub fn eval(&self) -> Float {
         match self {
-            Expr::Num(n) => *n,
+            Expr::Num(n) => *n as Float,
             Expr::Neg(e) => -e.eval(),
             Expr::Add(set) => set.iter().fold(0.0, |acc, e| acc + e.eval()),
+            Expr::Mul(set) => set.iter().fold(1.0, |acc, e| acc * e.eval()),
             Expr::Constant(c) => match c {
                 Const::Zero => 0.0,
                 Const::Pi => std::f64::consts::PI,
                 Const::E => std::f64::consts::E,
             },
+            Expr::Frac(a, b) => a.eval() / b.eval(),
         }
     }
 
@@ -81,36 +102,46 @@ impl Expr {
                 e => neg(e),
             },
             Expr::Add(operands) => {
-                let mut operands = operands
+                let operands = operands
                     .into_iter()
                     .map(|e| e.simplify())
                     .collect::<Vec<_>>();
+                let mut operands_map = HashMap::new();
+                for e in operands {
+                    operands_map.entry(e).and_modify(|c| *c += 1).or_insert(1);
+                }
 
-                let mut remove_indices = BTreeSet::new();
+                let mut canceled = HashMap::new();
 
-                for (i, e) in operands.iter().enumerate() {
-                    if let Some(test) = operands.iter().position(|test| test == &neg(e.clone())) {
-                        remove_indices.insert(i);
-                        remove_indices.insert(test);
+                for (expr, count) in &operands_map {
+                    if let Some(count_neg) = operands_map.get(&neg(expr.clone())) {
+                        canceled.insert(expr.clone(), *count_neg.min(count));
                     }
                 }
 
-                for i in remove_indices.iter().rev() {
-                    operands.remove(*i);
+                for (expr, count) in canceled {
+                    *operands_map.get_mut(&expr).unwrap() -= count;
+                    *operands_map.get_mut(&neg(expr)).unwrap() -= count;
                 }
 
-                remove_indices.clear();
+                operands_map.retain(|_, count| *count > 0);
 
+                let mut operands = operands_map
+                    .into_iter()
+                    .flat_map(|(e, c)| vec![e; c as usize])
+                    .collect::<Vec<_>>();
+
+                let mut removed_indices = Vec::new();
                 if let Some(first_num) = operands.iter().position(|e| matches!(e, Expr::Num(_))) {
                     for i in (first_num + 1)..operands.len() {
                         if let Expr::Num(n) = operands[i] {
                             operands[first_num] += n;
-                            remove_indices.insert(i);
+                            removed_indices.push(i);
                         }
                     }
                 }
 
-                for i in remove_indices.iter().rev() {
+                for i in removed_indices.iter().rev() {
                     operands.remove(*i);
                 }
 
@@ -122,6 +153,8 @@ impl Expr {
                     add(operands)
                 }
             }
+            Expr::Mul(_) => todo!(),
+            Expr::Frac(..) => todo!(),
             Expr::Constant(_) => self,
         }
     }
@@ -145,10 +178,10 @@ impl Add for Expr {
     }
 }
 
-impl Add<Float> for Expr {
+impl Add<Int> for Expr {
     type Output = Self;
 
-    fn add(self, rhs: Float) -> Self::Output {
+    fn add(self, rhs: Int) -> Self::Output {
         self + num(rhs)
     }
 }
@@ -165,8 +198,8 @@ impl AddAssign for Expr {
     }
 }
 
-impl AddAssign<Float> for Expr {
-    fn add_assign(&mut self, rhs: Float) {
+impl AddAssign<Int> for Expr {
+    fn add_assign(&mut self, rhs: Int) {
         *self += num(rhs);
     }
 }
@@ -189,10 +222,10 @@ impl Sub for Expr {
     }
 }
 
-impl Sub<Float> for Expr {
+impl Sub<Int> for Expr {
     type Output = Self;
 
-    fn sub(self, rhs: Float) -> Self::Output {
+    fn sub(self, rhs: Int) -> Self::Output {
         self - num(rhs)
     }
 }
@@ -209,8 +242,8 @@ impl SubAssign for Expr {
     }
 }
 
-impl SubAssign<Float> for Expr {
-    fn sub_assign(&mut self, rhs: Float) {
+impl SubAssign<Int> for Expr {
+    fn sub_assign(&mut self, rhs: Int) {
         *self -= num(rhs);
     }
 }
@@ -245,8 +278,8 @@ impl From<Expr> for Float {
     }
 }
 
-impl From<Float> for Expr {
-    fn from(value: Float) -> Self {
+impl From<Int> for Expr {
+    fn from(value: Int) -> Self {
         num(value)
     }
 }

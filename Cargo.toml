@@ -8,3 +8,7 @@ sci-calc-macros = { path = "macros" }
 
 [workspace]
 members = ["macros"]
+
+[[bin]]
+name = "play"
+path = "bin/play.rs"
