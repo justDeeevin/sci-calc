@@ -7,7 +7,3 @@ edition = "2024"
 nalgebra = "0.33.2"
 
 [workspace]
-
-[[bin]]
-name = "play"
-path = "bin/play.rs"
