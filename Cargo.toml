@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-sci-calc-macros = { path = "macros" }
+nalgebra = "0.33.2"
 
 [workspace]
-members = ["macros"]
 
 [[bin]]
 name = "play"
