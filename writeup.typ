@@ -5,6 +5,12 @@
 
 #outline()
 
+= Introduction
+
+Often we take our calculators for granted. We carry devices in our pockets that can graph extremely complicated functions and evaluate various functions and expressions that would be unreasonable to do by hand. However, it's easy to forget that there are still methods that must be used for computers to complete difficult calculations. This paper will provide an overview of the algorithms that are used in real life for such math. I'll be explaining the math behind the algorithms, describing how they are implemented in code, providing Python snippets, and writing my own implementations in Rust.
+
+It's important to note that, in the majority of cases, these algorithms are not implemented in code. Because of how fundamental they are, CPUs provide built-in methods for performing the calculations, with the algorithms themselves implemented with transistor logic. These implementations are necessarily incredibly faster than any code I could write. I'm doing this purely for education. As we go along, I'll be comparing the output of my code to these CPU implementations.
+
 = Trigonometric functions with CORDIC
 
 == The math
@@ -31,11 +37,8 @@ for $n$ iterations.
 
 Instead of doing matrix multiplication for each iteration, you can simply keep track of $x_i$ and $y_i$ as separate variables and perform scalar multiplication $x_(i + 1) = -sigma_i 2^(-i) x_i$ (and similar for y). To greatly improve performance and complexity, most implementations decide on a static number of iterations and pre-compute $K(n)$ as a constant scaling factor. In addition, in order to determine $sigma_i$, each step angle is precomputed, and the current angle is compared with the desired angle on each iteration.
 
-#pagebreak()
-
 === Code
 
-I wrote my implementation in Rust, but I've created Python translations for ease of understanding.
 ```python
 def cordic(beta):
   theta = 0.0 # stores current angle
@@ -46,9 +49,13 @@ def cordic(beta):
   for gamma in STEPS:
     sigma = 1 if theta < beta else -1
     theta += sigma * gamma
-    point = (point[0] - sigma * point.1 * p2i, point[1] + sigma * p2i * point.0)
+    point = (point[0] - sigma * point[1] * p2i, point[1] + sigma * p2i * point[0])
     p2i /= 2.0
 
   # where K is precomputed
   return (point[0] * K, point[1] * K)
 ```
+
+=== Output
+
+Using unit tests, I was able to verify that this algorithm matches the output of built-in CPU insructions within 12 decimal places.

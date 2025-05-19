@@ -13,7 +13,6 @@ fn precision() {
 
         dbg!(theta, cos, cos_expected, sin, sin_expected);
 
-        // Difference is greater than 1e-13
         assert!((cos - cos_expected).abs() < 1e-12);
         assert!((sin - sin_expected).abs() < 1e-12);
     }

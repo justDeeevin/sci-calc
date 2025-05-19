@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+// I do so wish these could be const...
 pub const ITERATIONS: usize = 40;
 static STEPS: LazyLock<[f64; ITERATIONS]> =
     LazyLock::new(|| std::array::from_fn(|i| 1_f64.atan2(2_f64.powi(i as i32))));
