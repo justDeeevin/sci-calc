@@ -55,8 +55,8 @@ pub fn initial_estimate(n: f64) -> f64 {
     let exp = ((bits & EXP_MASK) >> 52) as i32;
     let mant = bits & MANTISSA_MASK;
 
-    let nex_exp = ((exp - 1023) / 2 + 1023) as u64;
-    let estmate_bits = (nex_exp << 52) | mant;
+    let new_exp = ((exp - 1023) / 2 + 1023) as u64;
+    let estmate_bits = (new_exp << 52) | mant;
 
     f64::from_bits(estmate_bits)
 }
