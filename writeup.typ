@@ -1,9 +1,19 @@
-#set document(title: "Difficult math done by computers", author: "Devin Droddy")
+#set document(title: "Difficult Math Done by Computers", author: "Devin Droddy")
 
 #set math.vec(delim: "[")
 #set math.mat(delim: "[")
 
+#align(center)[
+  #text(20pt)[#context document.title]
+
+  #text(13pt)[#context document.author.at(0)]
+]
 #outline()
+
+#pagebreak()
+
+#set page(numbering: "1", number-align: right + bottom)
+#counter(page).update(1)
 
 = Introduction
 
@@ -59,3 +69,66 @@ def cordic(beta):
 === Output
 
 Using unit tests, I was able to verify that this algorithm matches the output of built-in CPU insructions within 12 decimal places.
+
+= Square root with Heron's method
+
+== The math
+
+Heron's method is a simple algorithm for finding a square root discovered in ancient Greece. It actually happens to be a special case of the Newton–Raphson method for finding the roots of a function. Starting with an initial estimate $x_0$ (the value of which will be discussed later), you iterate using $x_(n+1)=1/2 (x_n + S / x_n)$. This can be derived as follows.
+
+Where $x$ is the estimate of the desired square root $sqrt(S)$ and $epsilon$ is the error in the estimate, $S=(x+epsilon)^2$, which expands to $x^2+2x epsilon + epsilon^2$. This can be rearranged to
+$ epsilon = (S - x^2) / (2x + epsilon) $
+Assuming that $epsilon$ is much smaller than $x$, the denominator can be approximated as just $2x$. Thus, we can compensate for the error by adding the fraction $(S / x + x) / 2$ to $x$.
+
+== The software
+
+Since we're working with floating-point numbers, there isn't much optimization we can do to the algorithm itself.
+
+```python
+def sqrt(s):
+  if s == 0:
+    return 0
+  if s < 0:
+    raise ValueError("Complex math not yet implemented")
+  x = initial_estimate(s)
+  # 3 or 4 iterations is usually more than enough.
+  for _ in range(ITERATIONS):
+    x = 0.5 * (x + (s / x))
+
+  return x
+```
+
+=== The initial estimate
+
+There's a neat trick we can do, leveraging floating-point numbers, to find a strong initial estimate. Floating-point numbers store decimal numbers in a sort of scientific notation, with a number of bits defining an exponent and a number of bits defining the number. Since $sqrt(x)=x^(1/2)$, we can get a very strong initial estimate by halving the exponent of the floating-point number.
+
+This is a bit easier to do in Rust than in Python. Either way, it's pretty technical. You have to extract the raw binary representation of the floating-point number, do some bitwise logic to extract the exponent and mantissa (the name for the numeric value), and some bitshifting. Here's the code:
+
+```python
+import struct
+
+def initial_estimate(s):
+  # Extracts the binary representation of the floating-point number
+  bits = struct.unpack('>Q', struct.pack('>d', n))[0]
+
+  exponent = (bits >> 52) & 0x7FF0000000000000
+  mantissa = bits & 0x000FFFFFFFFFFFFF
+
+  # The exponent is shifted by 1023 in the binary representation, so to halve it we
+  # have to adjust
+  # The division by 2 could be optimized as a right bit shift, but the compiler will
+  # probably do that for you and division is easier to read
+  new_exponent = ((exponent - 1023) / 2 + 1023)
+  estimate_bits = (new_exponent << 52) | mantissa
+
+  # Back to a floating-point number
+  return struct.unpack('>d', struct.pack('>Q', estimate_bits))[0]
+```
+
+=== Output
+
+This one gets to 14 decimal places of precision! Additionally, using it to calculate K in the CORDIC algorithm doesn't reduce its precision at all. Nice!
+
+=== Complex numbers
+
+Representing complex numbers requires structuring data and adding special considerations to calculations in sofware. CPUs do not provide methods for complex math operations. For the square root, simply multiplying by $i$ when $S < 0$ does the trick.
