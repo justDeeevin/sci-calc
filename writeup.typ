@@ -47,8 +47,6 @@ for $n$ iterations.
 
 Instead of doing matrix multiplication for each iteration, you can simply keep track of $x_i$ and $y_i$ as separate variables and perform scalar multiplication $x_(i + 1) = -sigma_i 2^(-i) x_i$ (and similar for y). To greatly improve performance and complexity, most implementations decide on a static number of iterations and pre-compute $K(n)$ as a constant scaling factor. In addition, in order to determine $sigma_i$, each step angle is precomputed, and the current angle is compared with the desired angle on each iteration.
 
-=== Code
-
 ```python
 def cordic(beta):
   theta = 0.0 # stores current angle
