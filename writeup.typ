@@ -132,3 +132,7 @@ This one gets to 14 decimal places of precision! Additionally, using it to calcu
 === Complex numbers
 
 Representing complex numbers requires structuring data and adding special considerations to calculations in sofware. CPUs do not provide methods for complex math operations. For the square root, simply multiplying by $i$ when $S < 0$ does the trick.
+
+= Natural logarithm
+
+Despite extensive research, I was unable to find sufficient information on computer algorithms for natural logarithms in time to submit this assignment. I was referred to some textbooks, and a website documenting a particular C library, but nothing easily accessible with an in-depth explanation of the math. Some people claimed computers use Taylor series, sometimes with some kind of lookup table.
